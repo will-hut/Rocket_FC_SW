@@ -65,6 +65,8 @@ void Error_Handler(void);
 #define SW_EN3_GPIO_Port GPIOC
 #define SW_EN4_Pin GPIO_PIN_3
 #define SW_EN4_GPIO_Port GPIOC
+#define RADIO_CS_Pin GPIO_PIN_4
+#define RADIO_CS_GPIO_Port GPIOA
 #define RADIO_RST_Pin GPIO_PIN_4
 #define RADIO_RST_GPIO_Port GPIOC
 #define RADIO_BUSY_Pin GPIO_PIN_5
@@ -75,10 +77,12 @@ void Error_Handler(void);
 #define BARO_INT_GPIO_Port GPIOB
 #define IMU_INT_Pin GPIO_PIN_2
 #define IMU_INT_GPIO_Port GPIOB
-#define SPI2_CS1_Pin GPIO_PIN_13
-#define SPI2_CS1_GPIO_Port GPIOB
-#define SPI2_CS2_Pin GPIO_PIN_6
-#define SPI2_CS2_GPIO_Port GPIOC
+#define SDIO_DETECT_Pin GPIO_PIN_10
+#define SDIO_DETECT_GPIO_Port GPIOB
+#define SPI2_CS1_BARO_Pin GPIO_PIN_13
+#define SPI2_CS1_BARO_GPIO_Port GPIOB
+#define SPI2_CS2_IMU_Pin GPIO_PIN_6
+#define SPI2_CS2_IMU_GPIO_Port GPIOC
 #define ACCEL_INT_Pin GPIO_PIN_15
 #define ACCEL_INT_GPIO_Port GPIOA
 #define SW_ST4_Pin GPIO_PIN_4
