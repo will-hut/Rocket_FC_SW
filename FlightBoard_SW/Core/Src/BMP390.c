@@ -37,13 +37,14 @@ uint8_t BMP390_ReadReg(BMP390* BMP, uint8_t addr){ // returns byte
 	BMP->TX_Buf[1] = 0x00; // dummy read byte
 
 	BMP390_CSLow(BMP);
-	HAL_SPI_TransmitReceive(&BMP->SPI, BMP->TX_Buf, BMP->RX_Buf, 2, 100);
+	HAL_SPI_TransmitReceive(&BMP->SPI, BMP->TX_Buf, BMP->RX_Buf, 3, 100);
 	BMP390_CSHigh(BMP);
 
 	return BMP->RX_Buf[2]; // third byte is returned data
 }
 
 // reads multiple registers specified by a start/length, returning a pointer to the values
+// WARNING - do not read more than 30 registers at a time or the pointer will go out of bounds
 uint8_t* BMP390_ReadRegs(BMP390* BMP, uint8_t addr, uint8_t len){ // returns pointer to first byte of data
 
 	BMP->TX_Buf[0] = 0x80 | addr; // set bit 7 high for read

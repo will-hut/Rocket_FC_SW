@@ -26,6 +26,7 @@
 #include <stdint.h>
 
 #include "BMP390.h"
+#include "BMI323.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -146,12 +147,13 @@ int main(void)
   HAL_GPIO_WritePin(RADIO_RST_GPIO_Port, RADIO_RST_Pin, GPIO_PIN_SET);
   HAL_ADC_Start(&hadc1);
 
-  BMP390 BMP;
-  BMP.SPI = hspi2;
-  BMP.CS_Port = SPI2_CS1_BARO_GPIO_Port;
-  BMP.CS_Pin = SPI2_CS1_BARO_Pin;
+  BMI323 BMI;
+  BMI.SPI = hspi2;
+  BMI.CS_Port = SPI2_CS2_IMU_GPIO_Port;
+  BMI.CS_Pin = SPI2_CS2_IMU_Pin;
 
-  BMP390_Init(&BMP);
+  BMI323_Init(&BMI);
+
 
   /* USER CODE END 2 */
 
@@ -159,13 +161,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  BMP390_ReadData(&BMP);
+	  BMI323_ReadData(&BMI);
 
-	  double p = BMP.Pressure_Pascal;
+	  double g = BMI.Acc_Z_G;
 
-	  printf("%f\n", p);
+	  printf("%f\n", g);
 
-	  HAL_Delay(10);
+	  HAL_Delay(100);
 
 
     /* USER CODE END WHILE */
