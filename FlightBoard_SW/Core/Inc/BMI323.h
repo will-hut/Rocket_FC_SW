@@ -46,5 +46,6 @@ void BMI323_WriteReg(BMI323 *, uint8_t, uint16_t);
 uint16_t BMI323_ReadReg(BMI323 *, uint8_t);
 uint16_t* BMI323_ReadRegs(BMI323 *, uint8_t, uint8_t);
 void BMI323_Init(BMI323 *);
+void BMI323_ReadData(BMI323 *);
 
 #endif /* INC_BMI323_H_ */

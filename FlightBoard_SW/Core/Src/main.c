@@ -58,25 +58,14 @@ DMA_HandleTypeDef hdma_sdio_tx;
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
 
+TIM_HandleTypeDef htim2;
+
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
-uint8_t I2C_RX_Buffer[1]; // DATA to send
-uint8_t tx_data[3] = {0x80, 0x00, 0x00};
-uint8_t rx_data[3];
-
-uint8_t radio_tx_data[5] = {0x1D, 0x08, 0x80, 0xFF, 0xFF};
-uint8_t radio_rx_data[5];
-
-
-uint8_t uart_rx_buf[82];
-
-uint16_t raw_bat_adc;
-
-int triggered = 0;
-
+volatile int new_data_required = 0;
 
 FRESULT res; /* FatFs function common result code */
 uint32_t byteswritten, bytesread; /* File write/read counts */
@@ -96,6 +85,7 @@ static void MX_SPI2_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -142,17 +132,37 @@ int main(void)
   MX_USART2_UART_Init();
   MX_I2C1_Init();
   MX_FATFS_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
+  // bring LoRA radio out of reset
   HAL_GPIO_WritePin(RADIO_RST_GPIO_Port, RADIO_RST_Pin, GPIO_PIN_SET);
+
+  // begin battery ADC continuous reading
   HAL_ADC_Start(&hadc1);
 
+  // Initialize barometer
+  BMP390 BMP;
+  BMP.SPI = hspi2;
+  BMP.CS_Port = SPI2_CS1_BARO_GPIO_Port;
+  BMP.CS_Pin = SPI2_CS1_BARO_Pin;
+  BMP390_Init(&BMP);
+
+
+  // Initialize IMU
   BMI323 BMI;
   BMI.SPI = hspi2;
   BMI.CS_Port = SPI2_CS2_IMU_GPIO_Port;
   BMI.CS_Pin = SPI2_CS2_IMU_Pin;
-
   BMI323_Init(&BMI);
+
+
+  // start 100Hz data acquisition timer
+  // ISR is in stm32f4xx_it.c
+  if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK){
+     /* Starting Error */
+     Error_Handler();
+  }
 
 
   /* USER CODE END 2 */
@@ -161,13 +171,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  BMI323_ReadData(&BMI);
-
-	  double g = BMI.Acc_Z_G;
-
-	  printf("%f\n", g);
-
-	  HAL_Delay(100);
+	  // new_data_required is set high by a 100HZ timer in an ISR
+	  if(new_data_required){
+		  // data acquisition routine goes here
+		  new_data_required = 0;
+	  }
 
 
     /* USER CODE END WHILE */
@@ -419,6 +427,51 @@ static void MX_SPI2_Init(void)
   /* USER CODE BEGIN SPI2_Init 2 */
 
   /* USER CODE END SPI2_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 4;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 49999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
