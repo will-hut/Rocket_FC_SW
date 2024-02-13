@@ -28,6 +28,7 @@
 #include "BMP390.h"
 #include "BMI323.h"
 #include "PyroSwitch.h"
+#include "BatMon.h"
 
 /* USER CODE END Includes */
 
@@ -71,6 +72,7 @@ UART_HandleTypeDef huart2;
 BMP390 BMP;
 BMI323 BMI;
 PyroSwitch SW;
+BatMon Bat;
 
 volatile int new_data_required = 0;
 
@@ -147,9 +149,6 @@ int main(void)
   // bring LoRA radio out of reset
   HAL_GPIO_WritePin(RADIO_RST_GPIO_Port, RADIO_RST_Pin, GPIO_PIN_SET);
 
-  // begin battery ADC continuous reading
-  HAL_ADC_Start(&hadc1);
-
   // Initialize barometer
   BMP.SPI = hspi2;
   BMP.CS_Port = SPI2_CS1_BARO_GPIO_Port;
@@ -182,6 +181,9 @@ int main(void)
   SW.ST4_Port = SW_ST4_GPIO_Port;
   SW.ST4_Pin = SW_ST4_Pin;
 
+  // Initialize Battery Monitor
+  Bat.ADCHandle = hadc1;
+  BatMon_Init(&Bat);
 
 
   // start 100Hz data acquisition timer
@@ -200,16 +202,12 @@ int main(void)
 	  // new_data_required is set high by a 100HZ timer in an ISR
 	  if(new_data_required){
 		  // data acquisition routine goes here
+		  BMP390_ReadData(&BMP);
+		  BMI323_ReadData(&BMI);
+		  BatMon_ReadData(&Bat);
+
 		  new_data_required = 0;
 	  }
-
-	  PyroSwitch_Fire1(&SW);
-	  printf("Fired.\n");
-
-	  HAL_Delay(4000);
-
-
-
 
     /* USER CODE END WHILE */
 
