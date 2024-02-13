@@ -14,7 +14,6 @@
 typedef struct{
 	// peripheral config
 	SPI_HandleTypeDef		SPI;
-	HAL_StatusTypeDef		halReturn;
 	GPIO_TypeDef*			CS_Port;
 	uint16_t				CS_Pin;
 

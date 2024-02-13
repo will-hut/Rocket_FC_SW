@@ -27,6 +27,8 @@
 
 #include "BMP390.h"
 #include "BMI323.h"
+#include "PyroSwitch.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -59,11 +61,16 @@ SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+
+BMP390 BMP;
+BMI323 BMI;
+PyroSwitch SW;
 
 volatile int new_data_required = 0;
 
@@ -86,6 +93,7 @@ static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -133,6 +141,7 @@ int main(void)
   MX_I2C1_Init();
   MX_FATFS_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
   // bring LoRA radio out of reset
@@ -142,7 +151,6 @@ int main(void)
   HAL_ADC_Start(&hadc1);
 
   // Initialize barometer
-  BMP390 BMP;
   BMP.SPI = hspi2;
   BMP.CS_Port = SPI2_CS1_BARO_GPIO_Port;
   BMP.CS_Pin = SPI2_CS1_BARO_Pin;
@@ -150,11 +158,30 @@ int main(void)
 
 
   // Initialize IMU
-  BMI323 BMI;
   BMI.SPI = hspi2;
   BMI.CS_Port = SPI2_CS2_IMU_GPIO_Port;
   BMI.CS_Pin = SPI2_CS2_IMU_Pin;
   BMI323_Init(&BMI);
+
+  // Initialize Current Switch
+  SW.Timer = htim3;
+  SW.SW1_Port = SW_EN1_GPIO_Port;
+  SW.SW1_Pin = SW_EN1_Pin;
+  SW.SW2_Port = SW_EN2_GPIO_Port;
+  SW.SW2_Pin = SW_EN2_Pin;
+  SW.SW3_Port = SW_EN3_GPIO_Port;
+  SW.SW3_Pin = SW_EN3_Pin;
+  SW.SW4_Port = SW_EN4_GPIO_Port;
+  SW.SW4_Pin = SW_EN4_Pin;
+  SW.ST1_Port = SW_ST1_GPIO_Port;
+  SW.ST1_Pin = SW_ST1_Pin;
+  SW.ST2_Port = SW_ST2_GPIO_Port;
+  SW.ST2_Pin = SW_ST2_Pin;
+  SW.ST3_Port = SW_ST3_GPIO_Port;
+  SW.ST3_Pin = SW_ST3_Pin;
+  SW.ST4_Port = SW_ST4_GPIO_Port;
+  SW.ST4_Pin = SW_ST4_Pin;
+
 
 
   // start 100Hz data acquisition timer
@@ -163,7 +190,6 @@ int main(void)
      /* Starting Error */
      Error_Handler();
   }
-
 
   /* USER CODE END 2 */
 
@@ -176,6 +202,13 @@ int main(void)
 		  // data acquisition routine goes here
 		  new_data_required = 0;
 	  }
+
+	  PyroSwitch_Fire1(&SW);
+	  printf("Fired.\n");
+
+	  HAL_Delay(4000);
+
+
 
 
     /* USER CODE END WHILE */
@@ -476,6 +509,51 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 399;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_DOWN;
+  htim3.Init.Period = 62499;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -672,6 +750,19 @@ int _write(int file, char *ptr, int len)
     ITM_SendChar(*ptr++);
   }
   return len;
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+
+  if (htim == &htim2) {
+	  //100Hz data timer
+	  new_data_required = 1;
+  } else {
+	  // comparison done within PyroSwitch_All_Off
+	  // So this function needs to be at the very last else
+	  PyroSwitch_All_Off(&SW, htim);
+  }
 }
 
 /* USER CODE END 4 */
