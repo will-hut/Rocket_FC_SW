@@ -236,7 +236,7 @@ void BMP390_ReadData(BMP390* BMP){
 
 	// calculate meters above sea level
 	double atmospheric = BMP->Pressure_Pascal/100.0;
-	BMP->Altitude_M = 44330.0 * (1.0 - pow(atmospheric / SEALEVELPRESSURE_HPA, 0.1903));
+	BMP->Altitude_M = 44330.0 * (1.0 - pow(atmospheric / SEA_LEVEL_PRESSURE_HPA, 0.1903));
 }
 
 

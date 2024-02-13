@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "ADXL375.h"
 #include "BMP390.h"
 #include "BMI323.h"
 #include "PyroSwitch.h"
@@ -69,6 +70,7 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
+ADXL375 ADXL;
 BMP390 BMP;
 BMI323 BMI;
 PyroSwitch SW;
@@ -147,7 +149,13 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   // bring LoRA radio out of reset
+  // this will be replaced once the lora driver is created
   HAL_GPIO_WritePin(RADIO_RST_GPIO_Port, RADIO_RST_Pin, GPIO_PIN_SET);
+
+  // Initialize Hi-G Accelerometer
+  ADXL.I2C = hi2c1;
+  ADXL375_Init(&ADXL);
+
 
   // Initialize barometer
   BMP.SPI = hspi2;
@@ -199,15 +207,17 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
 	  // new_data_required is set high by a 100HZ timer in an ISR
 	  if(new_data_required){
 		  // data acquisition routine goes here
 		  BMP390_ReadData(&BMP);
 		  BMI323_ReadData(&BMI);
 		  BatMon_ReadData(&Bat);
-
+		  ADXL375_ReadData(&ADXL);
 		  new_data_required = 0;
 	  }
+
 
     /* USER CODE END WHILE */
 

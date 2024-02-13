@@ -50,45 +50,45 @@
 
 // physics constants
 
-#define SEALEVELPRESSURE_HPA 1013.25
+#define SEA_LEVEL_PRESSURE_HPA 1013.25
 
 // structs
 typedef struct {
 	// from table 24 of datasheet
 
-    uint16_t par_t1;
-    uint16_t par_t2;
-    int8_t par_t3;
-    int16_t par_p1;
-    int16_t par_p2;
-    int8_t par_p3;
-    int8_t par_p4;
-    uint16_t par_p5;
-    uint16_t par_p6;
-    int8_t par_p7;
-    int8_t par_p8;
-    int16_t par_p9;
-    int8_t par_p10;
-    int8_t par_p11;
-    int64_t t_lin;
+    uint16_t 		par_t1;
+    uint16_t 		par_t2;
+    int8_t 			par_t3;
+    int16_t 		par_p1;
+    int16_t 		par_p2;
+    int8_t 			par_p3;
+    int8_t 			par_p4;
+    uint16_t 		par_p5;
+    uint16_t 		par_p6;
+    int8_t 			par_p7;
+    int8_t 			par_p8;
+    int16_t 		par_p9;
+    int8_t 			par_p10;
+    int8_t 			par_p11;
+    int64_t 		t_lin;
 } BMP390_Calib_Data;
 
 typedef struct {
-    double par_t1;
-    double par_t2;
-    double par_t3;
-    double par_p1;
-    double par_p2;
-    double par_p3;
-    double par_p4;
-    double par_p5;
-    double par_p6;
-    double par_p7;
-    double par_p8;
-    double par_p9;
-    double par_p10;
-    double par_p11;
-    double t_lin;
+    double 			par_t1;
+    double 			par_t2;
+    double 			par_t3;
+    double 			par_p1;
+    double 			par_p2;
+    double 			par_p3;
+    double 			par_p4;
+    double 			par_p5;
+    double 			par_p6;
+    double 			par_p7;
+    double 			par_p8;
+    double 			par_p9;
+    double 			par_p10;
+    double 			par_p11;
+    double 			t_lin;
 } BMP390_Quant_Calib_Data;
 
 #endif /* INC_BMP390_DEFINITIONS_H_ */
