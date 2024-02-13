@@ -23,6 +23,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include <stdint.h>
+
+#include "BMP390.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -76,7 +79,7 @@ int triggered = 0;
 
 FRESULT res; /* FatFs function common result code */
 uint32_t byteswritten, bytesread; /* File write/read counts */
-uint8_t wtext[] = "Text for file goes here"; /* File write buffer */
+uint8_t wtext[] = "Please write in 4 bit mode pretty please"; /* File write buffer */
 uint8_t rtext[_MAX_SS];/* File read buffer */
 
 /* USER CODE END PV */
@@ -143,6 +146,12 @@ int main(void)
   HAL_GPIO_WritePin(RADIO_RST_GPIO_Port, RADIO_RST_Pin, GPIO_PIN_SET);
   HAL_ADC_Start(&hadc1);
 
+  BMP390 BMP;
+  BMP.SPI = hspi2;
+  BMP.CS_Port = SPI2_CS1_BARO_GPIO_Port;
+  BMP.CS_Pin = SPI2_CS1_BARO_Pin;
+
+  BMP390_Init(&BMP);
 
   /* USER CODE END 2 */
 
@@ -150,8 +159,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  printf("Hello world\n", triggered);
-	  HAL_Delay(1000);
+	  BMP390_ReadData(&BMP);
+
+	  double p = BMP.Pressure_Pascal;
+
+	  printf("%f\n", p);
+
+	  HAL_Delay(10);
 
 
     /* USER CODE END WHILE */
@@ -312,9 +326,19 @@ static void MX_SDIO_SD_Init(void)
   hsd.Init.ClockBypass = SDIO_CLOCK_BYPASS_ENABLE;
   hsd.Init.ClockPowerSave = SDIO_CLOCK_POWER_SAVE_DISABLE;
   hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
-  hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
+  hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_ENABLE;
   hsd.Init.ClockDiv = 0;
   /* USER CODE BEGIN SDIO_Init 2 */
+
+  // workaround for 1 bit SDIO bug
+  if (HAL_SD_Init(&hsd) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  if(HAL_SD_ConfigWideBusOperation(&hsd, SDIO_BUS_WIDE_4B) != HAL_OK){
+	  Error_Handler();
+  }
 
   /* USER CODE END SDIO_Init 2 */
 
