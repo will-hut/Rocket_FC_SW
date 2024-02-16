@@ -30,6 +30,7 @@
 #include "BMI323.h"
 #include "PyroSwitch.h"
 #include "BatMon.h"
+#include "SX1262.h"
 
 /* USER CODE END Includes */
 
@@ -75,6 +76,7 @@ BMP390 BMP;
 BMI323 BMI;
 PyroSwitch SW;
 BatMon Bat;
+SX1262 Radio;
 
 volatile int new_data_required = 0;
 
@@ -82,6 +84,8 @@ FRESULT res; /* FatFs function common result code */
 uint32_t byteswritten, bytesread; /* File write/read counts */
 uint8_t wtext[] = "Please write in 4 bit mode pretty please"; /* File write buffer */
 uint8_t rtext[_MAX_SS];/* File read buffer */
+
+uint8_t lora_message[255] = "Hello there";
 
 /* USER CODE END PV */
 
@@ -104,6 +108,45 @@ static void MX_TIM3_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+int _write(int file, char *ptr, int len)
+{
+  (void)file;
+  int DataIdx;
+
+  for (DataIdx = 0; DataIdx < len; DataIdx++)
+  {
+    ITM_SendChar(*ptr++);
+  }
+  return len;
+}
+
+// Timer elapsed callback custom functions
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+
+  if (htim == &htim2) {
+	  //100Hz data timer
+	  new_data_required = 1;
+  } else {
+	  // timer handle comparison done within PyroSwitch_All_Off
+	  // So this function needs to be at the very last else
+	  PyroSwitch_All_Off(&SW, htim);
+  }
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if(GPIO_Pin == RADIO_DIO1_Pin) // If The INT Source Is EXTI Line9 (A9 Pin)
+    {
+    	SX1262_HandleCallback(&Radio);
+    }
+}
+
+
+void Packet_Received(uint8_t* data, uint8_t len){
+	// handle LoRa packet here
+}
 
 /* USER CODE END 0 */
 
@@ -148,9 +191,18 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
-  // bring LoRA radio out of reset
-  // this will be replaced once the lora driver is created
-  HAL_GPIO_WritePin(RADIO_RST_GPIO_Port, RADIO_RST_Pin, GPIO_PIN_SET);
+
+
+  // Initialize SX1262 LoRA radio
+  Radio.SPI = hspi1;
+  Radio.Reset_Port = RADIO_RST_GPIO_Port;
+  Radio.Reset_Pin = RADIO_RST_Pin;
+  Radio.NSS_Port = RADIO_CS_GPIO_Port;
+  Radio.NSS_Pin = RADIO_CS_Pin;
+  Radio.Busy_Port = RADIO_BUSY_GPIO_Port;
+  Radio.Busy_Pin = RADIO_BUSY_Pin;
+  Radio.RX_Callback = &Packet_Received; // assign callback function
+  SX1262_Init(&Radio);
 
   // Initialize Hi-G Accelerometer
   ADXL.I2C = hi2c1;
@@ -195,7 +247,6 @@ int main(void)
 
 
   // start 100Hz data acquisition timer
-  // ISR is in stm32f4xx_it.c
   if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK){
      /* Starting Error */
      Error_Handler();
@@ -216,8 +267,12 @@ int main(void)
 		  BatMon_ReadData(&Bat);
 		  ADXL375_ReadData(&ADXL);
 		  new_data_required = 0;
+
+		  printf("hello\n");
+
 	  }
 
+	  SX1262_Transmit(&Radio, lora_message);
 
     /* USER CODE END WHILE */
 
@@ -244,7 +299,7 @@ void SystemClock_Config(void)
   * in the RCC_OscInitTypeDef structure.
   */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 15;
@@ -704,8 +759,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(RADIO_BUSY_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : RADIO_DIO1_Pin BARO_INT_Pin IMU_INT_Pin */
-  GPIO_InitStruct.Pin = RADIO_DIO1_Pin|BARO_INT_Pin|IMU_INT_Pin;
+  /*Configure GPIO pin : RADIO_DIO1_Pin */
+  GPIO_InitStruct.Pin = RADIO_DIO1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(RADIO_DIO1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : BARO_INT_Pin IMU_INT_Pin */
+  GPIO_InitStruct.Pin = BARO_INT_Pin|IMU_INT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
@@ -742,36 +803,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
-
-int _write(int file, char *ptr, int len)
-{
-  (void)file;
-  int DataIdx;
-
-  for (DataIdx = 0; DataIdx < len; DataIdx++)
-  {
-    ITM_SendChar(*ptr++);
-  }
-  return len;
-}
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-
-  if (htim == &htim2) {
-	  //100Hz data timer
-	  new_data_required = 1;
-  } else {
-	  // comparison done within PyroSwitch_All_Off
-	  // So this function needs to be at the very last else
-	  PyroSwitch_All_Off(&SW, htim);
-  }
-}
 
 /* USER CODE END 4 */
 

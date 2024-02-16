@@ -73,6 +73,7 @@ void Error_Handler(void);
 #define RADIO_BUSY_GPIO_Port GPIOC
 #define RADIO_DIO1_Pin GPIO_PIN_0
 #define RADIO_DIO1_GPIO_Port GPIOB
+#define RADIO_DIO1_EXTI_IRQn EXTI0_IRQn
 #define BARO_INT_Pin GPIO_PIN_1
 #define BARO_INT_GPIO_Port GPIOB
 #define IMU_INT_Pin GPIO_PIN_2
