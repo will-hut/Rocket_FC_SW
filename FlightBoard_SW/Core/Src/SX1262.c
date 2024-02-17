@@ -6,8 +6,6 @@
  */
 
 
-// TODO: Fix hardcoded max length and investigate LoRa explicit header (variable length)
-
 #include "SX1262.h"
 
 // sets the CS pin low
@@ -28,11 +26,15 @@ void SX1262_BusyWait(SX1262* SX){
 	while(HAL_GPIO_ReadPin(SX->Busy_Port, SX->Busy_Pin)) {}
 }
 
+void SX1262_TxWait(SX1262* SX){
+	while(SX->State == RADIO_TX) {}
+}
+
 void SX1262_WriteReg(SX1262* SX, uint16_t addr, uint8_t val){
 
 	SX->TX_Buf[0] = SX126X_CMD_WRITE_REGISTER;
-	SX->TX_Buf[1] = (uint8_t)(addr >> 8); // address high byte
-	SX->TX_Buf[2] = (uint8_t)(addr & 0xFF); // address low byte
+	SX->TX_Buf[1] = (addr >> 8); // address high byte
+	SX->TX_Buf[2] = (addr & 0xFF); // address low byte
 	SX->TX_Buf[3] = val; // value to write
 
 	SX1262_BusyWait(SX);
@@ -45,8 +47,8 @@ void SX1262_WriteReg(SX1262* SX, uint16_t addr, uint8_t val){
 uint8_t SX1262_ReadReg(SX1262* SX, uint16_t addr){
 
 	SX->TX_Buf[0] = SX126X_CMD_READ_REGISTER;
-	SX->TX_Buf[1] = (uint8_t)(addr >> 8); // address high byte
-	SX->TX_Buf[2] = (uint8_t)(addr & 0xFF); // address low byte
+	SX->TX_Buf[1] = (addr >> 8); // address high byte
+	SX->TX_Buf[2] = (addr & 0xFF); // address low byte
 
 	SX1262_BusyWait(SX);
 
@@ -208,8 +210,8 @@ void SX1262_SetModulationParamsLoRa(SX1262* SX, uint8_t sf, uint8_t bw, uint8_t 
 
 void SX1262_SetPacketParamsLoRa(SX1262* SX, uint16_t preambleLength, uint8_t headerType, uint8_t payloadLength, uint8_t crcType, uint8_t invertIQ){
 	SX->TX_Buf[0] = SX126X_CMD_SET_PACKET_PARAMS; // set packet params command
-	SX->TX_Buf[1] = (uint8_t)(preambleLength >> 8);
-	SX->TX_Buf[2] = (uint8_t)(preambleLength & 0xFF);
+	SX->TX_Buf[1] = (preambleLength >> 8);
+	SX->TX_Buf[2] = (preambleLength & 0xFF);
 	SX->TX_Buf[3] = headerType;
 	SX->TX_Buf[4] = payloadLength;
 	SX->TX_Buf[5] = crcType;
@@ -225,10 +227,10 @@ void SX1262_SetPacketParamsLoRa(SX1262* SX, uint16_t preambleLength, uint8_t hea
 
 void SX1262_SetDioIrqParams(SX1262* SX, uint16_t irqMask, uint16_t dio1Mask){
 	SX->TX_Buf[0] = SX126X_CMD_SET_DIO_IRQ_PARAMS;
-	SX->TX_Buf[1] = (uint8_t)(irqMask >> 8);
-	SX->TX_Buf[2] = (uint8_t)(irqMask & 0xFF);
-	SX->TX_Buf[3] = (uint8_t)(dio1Mask >> 8);
-	SX->TX_Buf[4] = (uint8_t)(dio1Mask & 0xFF);
+	SX->TX_Buf[1] = (irqMask >> 8);
+	SX->TX_Buf[2] = (irqMask & 0xFF);
+	SX->TX_Buf[3] = (dio1Mask >> 8);
+	SX->TX_Buf[4] = (dio1Mask & 0xFF);
 	SX->TX_Buf[5] = 0x00; // DIO2 inaccessible
 	SX->TX_Buf[6] = 0x00;
 	SX->TX_Buf[7] = 0x00; // DIO3 inaccessible
@@ -259,8 +261,8 @@ uint16_t SX1262_GetIrqStatus(SX1262* SX){
 
 void SX1262_ClearIrqStatus(SX1262* SX, uint16_t clearParam){
 	SX->TX_Buf[0] = SX126X_CMD_CLEAR_IRQ_STATUS;
-	SX->TX_Buf[1] = (uint8_t)(clearParam >> 8);
-	SX->TX_Buf[2] = (uint8_t)(clearParam & 0xFF);
+	SX->TX_Buf[1] = (clearParam >> 8);
+	SX->TX_Buf[2] = (clearParam & 0xFF);
 
 	SX1262_BusyWait(SX);
 
@@ -269,33 +271,35 @@ void SX1262_ClearIrqStatus(SX1262* SX, uint16_t clearParam){
 	SX1262_CSHigh(SX);
 }
 
+uint8_t SX1262_GetRxBufferLen(SX1262* SX){
 
+	SX->TX_Buf[0] = SX126X_CMD_GET_RX_BUFFER_STATUS; // read register command
+	SX->TX_Buf[1] = 0x00; // dummy byte
 
+	SX1262_BusyWait(SX);
 
-void SX1262_RxMode(SX1262* SX){
-	SX1262_SetDioIrqParams(SX, SX126X_IRQ_RX_DONE, SX126X_IRQ_RX_DONE); // assign RX done interrupt to DIO1
-	SX1262_SetRx(SX, SX126X_RX_TIMEOUT_INF); // setup rx continuous mode
-	SX->State = RADIO_RX;
-}
+	SX1262_CSLow(SX);
+	HAL_SPI_TransmitReceive(&SX->SPI, SX->TX_Buf, SX->RX_Buf, 4, 100); // 1 command byte, 1 wait, 2 response
+	SX1262_CSHigh(SX);
 
-void SX1262_TxMode(SX1262* SX){
-	SX1262_SetDioIrqParams(SX, SX126X_IRQ_TX_DONE, SX126X_IRQ_TX_DONE);
-	SX1262_SetTx(SX, SX126X_TX_TIMEOUT_NONE); // no timeout for TX
-	SX->State = RADIO_TX;
+	return SX->RX_Buf[2];
 }
 
 
 void SX1262_HandleCallback(SX1262* SX){
+	uint16_t status = SX1262_GetIrqStatus(SX);
+	printf("%x\n", status);
+	SX1262_ClearIrqStatus(SX, SX126X_IRQ_ALL);
+
 	switch(SX->State){
 		case RADIO_RX:
 			// New packet received
-			uint16_t status = SX1262_GetIrqStatus(SX);
-			SX1262_ClearIrqStatus(SX, SX126X_IRQ_ALL);
 			if(!(status & SX126X_IRQ_CRC_ERR)){
 				// packet not corrupted
-				SX1262_ReadBuffer(SX, SX126X_PACKET_LEN);
+				uint8_t len = SX1262_GetRxBufferLen(SX);
+				SX1262_ReadBuffer(SX, len);
 				// call packet received callback
-				(SX->RX_Callback)(SX->Packet_Buf, SX126X_PACKET_LEN);
+				(SX->RX_Callback)(SX->Packet_Buf, len);
 			}
 			// in RX continuous mode, no need to set back to rx mode
 			break;
@@ -309,15 +313,27 @@ void SX1262_HandleCallback(SX1262* SX){
 	}
 }
 
+void SX1262_SetPacketLen(SX1262* SX, uint8_t len){
+	SX1262_SetPacketParamsLoRa(SX, 8, SX126X_LORA_HEADER_EXPLICIT, len, SX126X_LORA_CRC_ON, SX126X_LORA_IQ_STANDARD); // 8 byte preamble, variable length message, length specified, crc on, normal IQ
+}
+
+void SX1262_RxMode(SX1262* SX){
+	SX1262_SetPacketLen(SX, SX126X_MAX_PACKET_LENGTH); // receive packets up to max length
+	SX1262_SetDioIrqParams(SX, SX126X_IRQ_RX_DONE, SX126X_IRQ_RX_DONE); // assign RX done interrupt to DIO1
+	SX1262_SetRx(SX, SX126X_RX_TIMEOUT_INF); // setup rx continuous mode
+	SX->State = RADIO_RX;
+}
 
 
-
-void SX1262_Transmit(SX1262* SX, uint8_t* data){
-	// TODO: THE LENGTH IS HARDCODED!!! BAD!!
-	SX1262_WriteBuffer(SX, data, SX126X_PACKET_LEN);
-
+void SX1262_Transmit(SX1262* SX, uint8_t* data, uint8_t len){
 	SX1262_BusyWait(SX);
-	SX1262_TxMode(SX);
+	SX1262_TxWait(SX);
+
+	SX1262_WriteBuffer(SX, data, len);
+	SX1262_SetPacketLen(SX, len);
+	SX1262_SetDioIrqParams(SX, SX126X_IRQ_TX_DONE, SX126X_IRQ_TX_DONE);
+	SX1262_SetTx(SX, SX126X_TX_TIMEOUT_NONE); // no timeout for TX
+	SX->State = RADIO_TX;
 }
 
 void SX1262_Init(SX1262* SX){
@@ -330,11 +346,9 @@ void SX1262_Init(SX1262* SX){
 	SX1262_SetPacketType(SX, SX126X_PACKET_TYPE_LORA); // set up as lora radio (instead of GFSK)
 	SX1262_SetRfFrequency(SX, 915000000); // set frequency to 915.0 MHz
 	SX1262_SetPaConfig(SX, SX126X_PA_CONFIG_DUTY_CYCLE, SX126X_PA_CONFIG_HP_MAX); // from table 13-21
-	SX1262_SetTxParams(SX, 22, SX126X_PA_RAMP_20U); // 22dBm, 20us ramp time
+	SX1262_SetTxParams(SX, 22, SX126X_PA_RAMP_10U); // 22dBm, 10us ramp time
 	SX1262_SetBufferBaseAddress(SX, 0x00, 0x00); // no fancy buffer, just make them both start at 0x00
-	SX1262_SetModulationParamsLoRa(SX, 7, SX126X_LORA_BW_10_4, SX126X_LORA_CR_4_5, SX126X_LORA_LOW_DATA_RATE_OPTIMIZE_OFF); //SF5, 62.5khz BW, CR 4/5. no LDRO
-	SX1262_SetPacketParamsLoRa(SX, 12, SX126X_LORA_HEADER_IMPLICIT, SX126X_PACKET_LEN, SX126X_LORA_CRC_ON, SX126X_LORA_IQ_STANDARD); // 12 byte preamble, fixed length message, 255 byte message, crc on, normal IQ
-
+	SX1262_SetModulationParamsLoRa(SX, 5, SX126X_LORA_BW_125_0, SX126X_LORA_CR_4_5, SX126X_LORA_LOW_DATA_RATE_OPTIMIZE_OFF); //SF5, 125khz BW, CR 4/5. no LDRO
 	SX1262_RxMode(SX); // set up IRQs and go into RX mode
 }
 

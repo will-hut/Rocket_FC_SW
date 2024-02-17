@@ -87,6 +87,8 @@ uint8_t rtext[_MAX_SS];/* File read buffer */
 
 uint8_t lora_message[255] = "Hello there";
 
+uint8_t test = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -261,18 +263,19 @@ int main(void)
 
 	  // new_data_required is set high by a 100HZ timer in an ISR
 	  if(new_data_required){
+		  new_data_required = 0;
 		  // data acquisition routine goes here
 		  BMP390_ReadData(&BMP);
 		  BMI323_ReadData(&BMI);
 		  BatMon_ReadData(&Bat);
 		  ADXL375_ReadData(&ADXL);
-		  new_data_required = 0;
 
-		  printf("hello\n");
-
+		  test++;
+		  if(test > 10){
+			  test = 0;
+			  SX1262_Transmit(&Radio, lora_message, 128);
+		  }
 	  }
-
-	  SX1262_Transmit(&Radio, lora_message);
 
     /* USER CODE END WHILE */
 

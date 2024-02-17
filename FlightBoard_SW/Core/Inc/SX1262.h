@@ -58,13 +58,14 @@ void SX1262_SetModulationParamsLoRa(SX1262*, uint8_t, uint8_t, uint8_t, uint8_t)
 void SX1262_SetPacketParamsLoRa(SX1262*, uint16_t, uint8_t, uint8_t, uint8_t, uint8_t);
 void SX1262_SetDioIrqParams(SX1262*, uint16_t, uint16_t);
 uint16_t SX1262_GetIrqStatus(SX1262*);
-
-void SX1262_RxMode(SX1262*);
-void SX1262_TxMode(SX1262*);
+uint8_t SX1262_GetRxBufferLen(SX1262*);
 
 void SX1262_HandleCallback(SX1262*);
+void SX1262_SetPacketLen(SX1262*, uint8_t);
 
-void SX1262_Transmit(SX1262*, uint8_t*);
+
+void SX1262_RxMode(SX1262*);
+void SX1262_Transmit(SX1262*, uint8_t*, uint8_t);
 void SX1262_Init(SX1262*);
 
 
