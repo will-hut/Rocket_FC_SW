@@ -31,6 +31,7 @@
 #include "PyroSwitch.h"
 #include "BatMon.h"
 #include "SX1262.h"
+#include "GPS.h"
 
 /* USER CODE END Includes */
 
@@ -68,6 +69,7 @@ TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
 
@@ -77,6 +79,7 @@ BMI323 BMI;
 PyroSwitch SW;
 BatMon Bat;
 SX1262 Radio;
+GPS_t GPS;
 
 volatile int new_data_required = 0;
 
@@ -88,6 +91,8 @@ uint8_t rtext[_MAX_SS];/* File read buffer */
 uint8_t lora_message[255] = "Hello there";
 
 uint8_t test = 0;
+
+
 
 /* USER CODE END PV */
 
@@ -143,6 +148,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     {
     	SX1262_HandleCallback(&Radio);
     }
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    GPS_DMA_Callback(&GPS);
 }
 
 
@@ -247,6 +257,11 @@ int main(void)
   Bat.ADCHandle = hadc1;
   BatMon_Init(&Bat);
 
+  // Initialize GPS
+  GPS.UART = huart1;
+  GPS.DMA = hdma_usart1_rx;
+  GPS_Init(&GPS);
+
 
   // start 100Hz data acquisition timer
   if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK){
@@ -269,6 +284,7 @@ int main(void)
 		  BMI323_ReadData(&BMI);
 		  BatMon_ReadData(&Bat);
 		  ADXL375_ReadData(&ADXL);
+		  GPS_Parse(&GPS);
 
 		  test++;
 		  if(test > 10){
@@ -695,6 +711,9 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA2_Stream2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
   /* DMA2_Stream3_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);

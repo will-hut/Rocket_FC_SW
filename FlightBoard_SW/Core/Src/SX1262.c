@@ -288,7 +288,6 @@ uint8_t SX1262_GetRxBufferLen(SX1262* SX){
 
 void SX1262_HandleCallback(SX1262* SX){
 	uint16_t status = SX1262_GetIrqStatus(SX);
-	printf("%x\n", status);
 	SX1262_ClearIrqStatus(SX, SX126X_IRQ_ALL);
 
 	switch(SX->State){
