@@ -34,6 +34,8 @@
 #include "GPS.h"
 #include "SD.h"
 
+#include "MadgwickAHRS.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -82,6 +84,9 @@ BatMon Bat;
 SX1262 Radio;
 GPS_t GPS;
 SD_t SD;
+
+
+Madgwick AHRS;
 
 volatile int new_data_required = 0;
 
@@ -265,6 +270,11 @@ int main(void)
   GPS.DMA = hdma_usart1_rx;
   GPS_Init(&GPS);
 
+
+  // Initialize Madgwick AHRS system
+  Madgwick_Init(&AHRS);
+
+
   // Initialize SD
   SD.Fat_FS = SDFatFS;
   SD.SD_File = SDFile;
@@ -295,7 +305,9 @@ int main(void)
 		  ADXL375_ReadData(&ADXL);
 		  GPS_Parse(&GPS);
 
-		  sd_writestringlen = snprintf(sd_writestring, 255, "%f,%f,%f,%f,%f,%f\n", BMI.Acc_X_G, BMI.Acc_Y_G, BMI.Acc_Z_G, BMI.Gyro_X_Deg_S, BMI.Gyro_Y_Deg_S, BMI.Gyro_Z_Deg_S);
+		  Madgwick_UpdateIMU(&AHRS, BMI.Gyro_X_Deg_S, BMI.Gyro_Y_Deg_S, BMI.Gyro_Z_Deg_S, BMI.Acc_X_G, BMI.Acc_Y_G, BMI.Acc_Z_G);
+
+		  sd_writestringlen = snprintf(sd_writestring, 255, "%f,%f,%f\n", AHRS.Roll_Radians, AHRS.Pitch_Radians, AHRS.Yaw_Radians);
 		  SD_QueueWrite(&SD, sd_writestring, sd_writestringlen);
 
 
@@ -306,7 +318,7 @@ int main(void)
 		  }
 
 		  test2++;
-		  if(test2 == 1024){
+		  if(test2 == 1000){
 			  SD_Close(&SD);
 		  }
 	  }
