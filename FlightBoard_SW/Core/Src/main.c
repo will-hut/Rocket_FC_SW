@@ -32,6 +32,7 @@
 #include "BatMon.h"
 #include "SX1262.h"
 #include "GPS.h"
+#include "SD.h"
 
 /* USER CODE END Includes */
 
@@ -80,6 +81,7 @@ PyroSwitch SW;
 BatMon Bat;
 SX1262 Radio;
 GPS_t GPS;
+SD_t SD;
 
 volatile int new_data_required = 0;
 
@@ -89,10 +91,11 @@ uint8_t wtext[] = "Please write in 4 bit mode pretty please"; /* File write buff
 uint8_t rtext[_MAX_SS];/* File read buffer */
 
 uint8_t lora_message[255] = "Hello there";
+char sd_writestring[512];
+uint8_t sd_writestringlen = 0;
 
 uint8_t test = 0;
-
-
+uint32_t test2 = 0;
 
 /* USER CODE END PV */
 
@@ -262,12 +265,18 @@ int main(void)
   GPS.DMA = hdma_usart1_rx;
   GPS_Init(&GPS);
 
+  // Initialize SD
+  SD.Fat_FS = SDFatFS;
+  SD.SD_File = SDFile;
+  SD_Init(&SD);
+  SD_Open(&SD);
 
   // start 100Hz data acquisition timer
   if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK){
      /* Starting Error */
      Error_Handler();
   }
+
 
   /* USER CODE END 2 */
 
@@ -286,12 +295,22 @@ int main(void)
 		  ADXL375_ReadData(&ADXL);
 		  GPS_Parse(&GPS);
 
+		  sd_writestringlen = snprintf(sd_writestring, 255, "%f,%f,%f,%f,%f,%f\n", BMI.Acc_X_G, BMI.Acc_Y_G, BMI.Acc_Z_G, BMI.Gyro_X_Deg_S, BMI.Gyro_Y_Deg_S, BMI.Gyro_Z_Deg_S);
+		  SD_QueueWrite(&SD, sd_writestring, sd_writestringlen);
+
+
 		  test++;
 		  if(test > 10){
 			  test = 0;
 			  SX1262_Transmit(&Radio, lora_message, 128);
 		  }
+
+		  test2++;
+		  if(test2 == 1024){
+			  SD_Close(&SD);
+		  }
 	  }
+
 
     /* USER CODE END WHILE */
 
@@ -456,14 +475,14 @@ static void MX_SDIO_SD_Init(void)
   /* USER CODE BEGIN SDIO_Init 2 */
 
   // workaround for 1 bit SDIO bug
-  if (HAL_SD_Init(&hsd) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  if(HAL_SD_ConfigWideBusOperation(&hsd, SDIO_BUS_WIDE_4B) != HAL_OK){
-	  Error_Handler();
-  }
+//  if (HAL_SD_Init(&hsd) != HAL_OK)
+//  {
+//    Error_Handler();
+//  }
+//
+//  if(HAL_SD_ConfigWideBusOperation(&hsd, SDIO_BUS_WIDE_4B) != HAL_OK){
+//	  Error_Handler();
+//  }
 
   /* USER CODE END SDIO_Init 2 */
 
