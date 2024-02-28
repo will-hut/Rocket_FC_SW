@@ -47,6 +47,6 @@ void PyroSwitch_Fire2(PyroSwitch *);
 void PyroSwitch_Fire3(PyroSwitch *);
 void PyroSwitch_Fire4(PyroSwitch *);
 
-void PyroSwitch_All_Off(PyroSwitch *, TIM_HandleTypeDef *);
+void PyroSwitch_HandleCallback(PyroSwitch *, TIM_HandleTypeDef *);
 
 #endif /* INC_PYROSWITCH_H_ */

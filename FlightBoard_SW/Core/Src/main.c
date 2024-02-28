@@ -45,8 +45,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define PI 3.14159265358979323846
-#define TAU (2.0 * PI)
 
 /* USER CODE END PD */
 
@@ -88,19 +86,15 @@ SD_t SD;
 
 Madgwick AHRS;
 
+
 volatile int new_data_required = 0;
 
-FRESULT res; /* FatFs function common result code */
-uint32_t byteswritten, bytesread; /* File write/read counts */
-uint8_t wtext[] = "Please write in 4 bit mode pretty please"; /* File write buffer */
-uint8_t rtext[_MAX_SS];/* File read buffer */
-
 uint8_t lora_message[255] = "Hello there";
-char sd_writestring[512];
-uint8_t sd_writestringlen = 0;
+char sd_string[512];
+uint8_t sd_len = 0;
 
-uint8_t test = 0;
-uint32_t test2 = 0;
+uint8_t telem_counter = 0;
+uint32_t sd_log_counter = 0;
 
 /* USER CODE END PV */
 
@@ -146,13 +140,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   } else {
 	  // timer handle comparison done within PyroSwitch_All_Off
 	  // So this function needs to be at the very last else
-	  PyroSwitch_All_Off(&SW, htim);
+	  PyroSwitch_HandleCallback(&SW, htim);
   }
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    if(GPIO_Pin == RADIO_DIO1_Pin) // If The INT Source Is EXTI Line9 (A9 Pin)
+    if(GPIO_Pin == RADIO_DIO1_Pin)
     {
     	SX1262_HandleCallback(&Radio);
     }
@@ -162,6 +156,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     GPS_DMA_Callback(&GPS);
 }
+
+
 
 
 void Packet_Received(uint8_t* data, uint8_t len){
@@ -297,8 +293,8 @@ int main(void)
 
 	  // new_data_required is set high by a 100HZ timer in an ISR
 	  if(new_data_required){
-		  new_data_required = 0;
-		  // data acquisition routine goes here
+
+		  // Data acquisition
 		  BMP390_ReadData(&BMP);
 		  BMI323_ReadData(&BMI);
 		  BatMon_ReadData(&Bat);
@@ -307,21 +303,26 @@ int main(void)
 
 		  Madgwick_UpdateIMU(&AHRS, BMI.Gyro_X_Deg_S, BMI.Gyro_Y_Deg_S, BMI.Gyro_Z_Deg_S, BMI.Acc_X_G, BMI.Acc_Y_G, BMI.Acc_Z_G);
 
-		  sd_writestringlen = snprintf(sd_writestring, 255, "%f,%f,%f\n", AHRS.Roll_Radians, AHRS.Pitch_Radians, AHRS.Yaw_Radians);
-		  SD_QueueWrite(&SD, sd_writestring, sd_writestringlen);
+		  sd_len = snprintf(sd_string, 255, "%f,%f,%f\n", AHRS.Roll_Radians, AHRS.Pitch_Radians, AHRS.Yaw_Radians); // create log string
+		  SD_QueueWrite(&SD, sd_string, sd_len); // put in SD card write queue
 
 
-		  test++;
-		  if(test > 10){
-			  test = 0;
+		  telem_counter++;
+		  if(telem_counter > 10){
+			  telem_counter = 0;
 			  SX1262_Transmit(&Radio, lora_message, 128);
 		  }
 
-		  test2++;
-		  if(test2 == 1000){
+
+		  sd_log_counter++;
+		  if(sd_log_counter == 1000){
 			  SD_Close(&SD);
 		  }
+
+		  new_data_required = 0;
 	  }
+
+	  // code placed here will run as fast as possible
 
 
     /* USER CODE END WHILE */

@@ -46,7 +46,7 @@ void PyroSwitch_Fire4(PyroSwitch* SW){
 
 
 
-void PyroSwitch_All_Off(PyroSwitch* SW, TIM_HandleTypeDef *htim){
+void PyroSwitch_HandleCallback(PyroSwitch* SW, TIM_HandleTypeDef *htim){
 	// check if timer event is our timer
 	if((&SW->Timer)->Instance == htim->Instance){
 		HAL_GPIO_WritePin(SW->SW1_Port, SW->SW1_Pin, GPIO_PIN_RESET);
