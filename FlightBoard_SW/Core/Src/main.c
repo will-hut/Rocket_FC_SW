@@ -276,6 +276,7 @@ int main(void)
   SD.SD_File = SDFile;
   SD_Init(&SD);
   SD_Open(&SD);
+  SD_QueueWrite(&SD, "ACC_X,ACC_Y,ACC_Z,ROLL,PITCH,YAW,BAR_PRES_P, BAR_ALT_M\n", 55);
 
   // start 100Hz data acquisition timer
   if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK){
@@ -303,19 +304,19 @@ int main(void)
 
 		  Madgwick_UpdateIMU(&AHRS, BMI.Gyro_X_Deg_S, BMI.Gyro_Y_Deg_S, BMI.Gyro_Z_Deg_S, BMI.Acc_X_G, BMI.Acc_Y_G, BMI.Acc_Z_G);
 
-		  sd_len = snprintf(sd_string, 255, "%f,%f,%f\n", AHRS.Roll_Radians, AHRS.Pitch_Radians, AHRS.Yaw_Radians); // create log string
+		  sd_len = snprintf(sd_string, 255, "%f,%f,%f,%f,%f,%f,%f,%f\n", ADXL.Acc_X_G, ADXL.Acc_Y_G, ADXL.Acc_Z_G, AHRS.Roll_Radians, AHRS.Pitch_Radians, AHRS.Yaw_Radians, BMP.Pressure_Pascal, BMP.Altitude_M); // create log string
 		  SD_QueueWrite(&SD, sd_string, sd_len); // put in SD card write queue
 
 
 		  telem_counter++;
 		  if(telem_counter > 10){
 			  telem_counter = 0;
-			  SX1262_Transmit(&Radio, lora_message, 128);
+			  //SX1262_Transmit(&Radio, lora_message, 128);
 		  }
 
 
 		  sd_log_counter++;
-		  if(sd_log_counter == 1000){
+		  if(sd_log_counter == 4500){
 			  SD_Close(&SD);
 		  }
 
